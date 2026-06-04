@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+.custom-codex-token-saver/
+benchmarks/fixtures/.ab/
+*.bak-ccts-*

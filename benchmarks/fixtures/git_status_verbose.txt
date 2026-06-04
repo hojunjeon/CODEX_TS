@@ -1,0 +1,14 @@
+On branch feature/codex-token-saver
+Your branch is ahead of 'origin/feature/codex-token-saver' by 2 commits.
+
+Changes not staged for commit:
+  modified:   codex_token_saver/compactor.py
+  modified:   README.md
+  modified:   docs/USAGE.md
+
+Untracked files:
+  tests/test_compactor.py
+  docs/AB_TEST_RESULTS.md
+  skill/codex-token-saver/SKILL.md
+
+no changes added to commit (use "git add" and/or "git commit -a")

@@ -1,0 +1,78 @@
+============================= test session starts =============================
+platform win32 -- Python 3.11.8, pytest-8.2.0
+rootdir: C:\work\sample
+collected 64 items
+tests/test_unit_001.py .
+tests/test_unit_002.py .
+tests/test_unit_003.py .
+tests/test_unit_004.py .
+tests/test_unit_005.py .
+tests/test_unit_006.py .
+tests/test_unit_007.py .
+tests/test_unit_008.py .
+tests/test_unit_009.py .
+tests/test_unit_010.py .
+tests/test_unit_011.py .
+tests/test_unit_012.py .
+tests/test_unit_013.py .
+tests/test_unit_014.py .
+tests/test_unit_015.py .
+tests/test_unit_016.py .
+tests/test_unit_017.py .
+tests/test_unit_018.py .
+tests/test_unit_019.py .
+tests/test_unit_020.py .
+tests/test_unit_021.py .
+tests/test_unit_022.py .
+tests/test_unit_023.py .
+tests/test_unit_024.py .
+tests/test_unit_025.py .
+tests/test_unit_026.py .
+tests/test_unit_027.py .
+tests/test_unit_028.py .
+tests/test_unit_029.py .
+tests/test_unit_030.py .
+tests/test_unit_031.py .
+tests/test_unit_032.py .
+tests/test_unit_033.py .
+tests/test_unit_034.py .
+tests/test_unit_035.py .
+tests/test_unit_036.py .
+tests/test_unit_037.py .
+tests/test_unit_038.py .
+tests/test_unit_039.py .
+tests/test_unit_040.py .
+tests/test_auth.py F
+================================== FAILURES ===================================
+______________________ test_rejects_expired_token ______________________
+tests/test_auth.py:42: AssertionError
+E       assert 200 == 401
+E        +  where 200 = response.status_code
+debug: request id 0001 bearer token eyJhbGci...
+debug: cache hit false
+debug: middleware stack start
+debug: middleware stack auth
+debug: middleware stack csrf
+debug: middleware stack handler
+debug: middleware stack response
+debug: verbose payload field a
+debug: verbose payload field b
+debug: verbose payload field c
+debug: verbose payload field d
+debug: verbose payload field e
+debug: verbose payload field f
+debug: verbose payload field g
+debug: verbose payload field h
+debug: verbose payload field i
+debug: verbose payload field j
+debug: verbose payload field k
+debug: verbose payload field l
+debug: verbose payload field m
+debug: verbose payload field n
+debug: verbose payload field o
+debug: verbose payload field p
+debug: verbose payload field q
+debug: verbose payload field r
+debug: verbose payload field s
+debug: verbose payload field t
+==================== 1 failed, 63 passed in 8.11s ====================

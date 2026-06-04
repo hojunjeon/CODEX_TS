@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CCTS Performance</title>
+  <style>
+    body { margin: 0; font-family: Segoe UI, system-ui, sans-serif; background: #eef3f7; color: #17212b; }
+    main { max-width: 980px; margin: 0 auto; padding: 32px 18px 48px; }
+    section { background: white; border: 1px solid #d8e2eb; border-radius: 8px; padding: 22px; box-shadow: 0 14px 36px rgba(24,38,52,.12); }
+    h1 { margin: 0 0 12px; font-size: clamp(28px, 4vw, 44px); }
+    .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 18px 0; }
+    .stat { border: 1px solid #d8e2eb; border-radius: 8px; padding: 14px; background: #f6f9fb; }
+    .stat strong { display: block; font-size: 25px; color: #127a57; }
+    .stat span { color: #5c6d7c; font-size: 13px; }
+    table { width: 100%; border-collapse: collapse; border: 1px solid #d8e2eb; border-radius: 8px; overflow: hidden; }
+    th, td { padding: 11px; border-bottom: 1px solid #d8e2eb; text-align: left; font-size: 14px; }
+    th { background: #edf4fa; font-size: 12px; text-transform: uppercase; }
+    .pass { color: #127a57; font-weight: 800; }
+    .check { color: #a26600; font-weight: 800; }
+    @media (max-width: 760px) {
+      .stats { grid-template-columns: 1fr; }
+      table, thead, tbody, tr, td { display: block; width: 100%; }
+      thead { display: none; }
+      tr { border-bottom: 1px solid #d8e2eb; padding: 8px 0; }
+      td { border-bottom: 0; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <section>
+    <h1>CCTS 성능 평가표</h1>
+    <p>CCTS는 기존 raw Codex 컨텍스트 대신 compact preview + SQLite raw vault + ctx://capture 참조를 사용합니다.</p>
+    <div class="stats">
+      <div class="stat"><strong>22517</strong><span>baseline tokens</span></div>
+      <div class="stat"><strong>442</strong><span>optimized tokens</span></div>
+      <div class="stat"><strong>98.0%</strong><span>overall saving</span></div>
+      <div class="stat"><strong>100%</strong><span>anchor recall</span></div>
+    </div>
+    <table>
+      <thead><tr><th>Case</th><th>Type</th><th>Raw</th><th>CCTS</th><th>Saving</th><th>Recall</th><th>Gate</th></tr></thead>
+      <tbody><tr><td>git_status_verbose</td><td>terminal-output</td><td>99</td><td>48</td><td>51.5%</td><td>100%</td><td><span class='pass'>PASS</span></td></tr><tr><td>long_log_with_secret</td><td>terminal-output</td><td>20432</td><td>273</td><td>98.7%</td><td>100%</td><td><span class='pass'>PASS</span></td></tr><tr><td>pytest_failure</td><td>terminal-output</td><td>642</td><td>26</td><td>96.0%</td><td>100%</td><td><span class='pass'>PASS</span></td></tr><tr><td>rg_results</td><td>terminal-output</td><td>77</td><td>58</td><td>24.7%</td><td>100%</td><td><span class='check'>CHECK</span></td></tr><tr><td>symbol-pack</td><td>codex-context-pack</td><td>1267</td><td>37</td><td>97.1%</td><td>100%</td><td><span class='pass'>PASS</span></td></tr></tbody>
+    </table>
+  </section>
+</main>
+</body>
+</html>
