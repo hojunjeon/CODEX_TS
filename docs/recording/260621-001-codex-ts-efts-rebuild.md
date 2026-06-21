@@ -2,7 +2,7 @@
 
 Date: 2026-06-21
 Project: CODEX_TS
-Status: EFTS installed locally with config-parse prevention; paused before destructive remote push confirmation
+Status: EFTS installed locally with config-parse prevention; pushed to origin/main
 
 ## Purpose
 
@@ -54,6 +54,7 @@ Status: EFTS installed locally with config-parse prevention; paused before destr
 - `C:\Users\user\.codex\bin\efts.cmd ab-test --fixtures C:\Users\user\AppData\Local\EFTS\benchmarks\fixtures`
 - `rg -n "codex-token-saver|custom-codex-token-saver|cts\.cmd|CCTS|ccts" C:\Users\user\.codex\bin C:\Users\user\.codex\hooks C:\Users\user\.codex\skills\efts C:\Users\user\.codex\hooks.json C:\Users\user\.codex\config.toml`
 - `codex doctor --summary --ascii`
+- `git push origin main`
 - `python - <<'PY' ... tomllib.loads(config.toml) ... PY`
 - `rg -n -i "Invalid TOML|sandbox|permissionProfile|settings-store|failed" C:\Users\user\AppData\Local\Packages\OpenAI.Codex_2p2nqsd0c76g0\LocalCache\Local\Codex\Logs\2026\06\21\codex-desktop-40ed914f-b8bc-4a70-9b37-436b38d71653-29676-t0-i1-074826-0.log`
 - `rg -n "sk-[A-Za-z0-9_-]{12,}|Bearer\s+[A-Za-z0-9._~+/=-]{12,}|ghp_[A-Za-z0-9_]{12,}|api[_-]?key\s*[:=]|password\s*[:=]|secret\s*[:=]" -g '!*.pyc' -g '!benchmarks/fixtures/.ab/**'`
@@ -69,16 +70,12 @@ Status: EFTS installed locally with config-parse prevention; paused before destr
 - Codex config parse: PASS, `tomllib.loads(C:\Users\user\.codex\config.toml)` succeeded.
 - Codex doctor: PASS, `17 ok | 1 idle | 1 notes | 0 warn | 0 fail`.
 - Desktop log check: PASS, latest checked Desktop log had normal `permissionProfile/list` and `windowsSandbox/readiness` responses; the earlier failing log showed duplicate `hooks.state."...post_tool_use:0:0"` as the root cause.
+- Git push: PASS, `origin/main` advanced from `bd78612` to `08f8fe5`.
 - Secret-like scan: PASS, no matches after replacing fixture tokens with fake values.
 - Name trace: PASS, only intentional legacy hook cleanup references remain.
 
 ## Remaining Risks
 
-- Remote `main` push is intentionally paused because it replaces/deletes the old repository tree.
-- `gh` CLI is unavailable, so publish uses `git push` only.
+- `gh` CLI is unavailable, so publish used `git push` only.
 - CRLF warnings are present on Windows but did not affect tests.
 - Existing Codex Desktop sessions may need restart before the newly installed EFTS skill/hook list is fully reloaded.
-
-## Next Step
-
-- After explicit user confirmation, push the commit to `origin/main`.
