@@ -1,4 +1,4 @@
-﻿"""CCTS.
+﻿"""EFTS.
 
 Stdlib-only helpers for keeping Codex context small while preserving raw
 evidence in a local SQLite store.

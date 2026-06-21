@@ -1,17 +1,18 @@
-# CCTS A/B Test Results
+# EFTS A/B Test Results
 
 Baseline sends raw terminal/file context. Optimized sends compact facts plus SQLite `ctx://` references.
 
-- Overall baseline tokens: 22517
-- Overall optimized tokens: 442
-- Overall saving: 98.0%
+- Overall baseline tokens: 22521
+- Overall optimized tokens: 506
+- Overall saving: 97.8%
 - Anchor recall: 100%
-- Runtime: 20.236 ms
+- Quality fact coverage: 100%
+- Runtime: 18.276 ms
 
-| Case | Type | Baseline | Optimized | Saving | Recall |
-|---|---:|---:|---:|---:|---:|
-| git_status_verbose | terminal-output | 99 | 48 | 51.5% | 100% |
-| long_log_with_secret | terminal-output | 20432 | 273 | 98.7% | 100% |
-| pytest_failure | terminal-output | 642 | 26 | 96.0% | 100% |
-| rg_results | terminal-output | 77 | 58 | 24.7% | 100% |
-| symbol-pack | codex-context-pack | 1267 | 37 | 97.1% | 100% |
+| Case | Type | Baseline | Optimized | Saving | Recall | Quality |
+|---|---:|---:|---:|---:|---:|---:|
+| git_status_verbose | terminal-output | 100 | 48 | 52.0% | 100% | 100% |
+| long_log_with_secret | terminal-output | 20431 | 271 | 98.7% | 100% | 100% |
+| pytest_failure | terminal-output | 643 | 41 | 93.6% | 100% | 100% |
+| rg_results | terminal-output | 78 | 75 | 3.9% | 100% | 100% |
+| symbol-pack | codex-context-pack | 1269 | 71 | 94.4% | 100% | 100% |

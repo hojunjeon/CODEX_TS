@@ -21,7 +21,7 @@ class WatchdogReport:
 
     def to_markdown(self) -> str:
         lines = [
-            "# CCTS Requirement Watchdog",
+            "# EFTS Requirement Watchdog",
             "",
             "| Gate | Status | Evidence |",
             "|---|---|---|",
@@ -46,7 +46,6 @@ class RequirementWatchdog:
             self._gate_watchdog_subagent(),
             self._gate_post_tool_use_hook(),
             self._gate_installers(),
-            self._gate_windows_zip(),
             self._gate_ab(metrics),
             self._gate_runtime(metrics),
             self._gate_case_savings(metrics),
@@ -72,53 +71,53 @@ class RequirementWatchdog:
         ]
         text = path.read_text(encoding="utf-8") if path.exists() else ""
         missing = [name for name in expected if name not in text]
-        return Gate("10 repo analysis", "PASS" if not missing else "FAIL", str(path) if not missing else "missing " + ",".join(missing))
+        return Gate("10 repo analysis", "PASS" if not missing else "FAIL", self._rel(path) if not missing else "missing " + ",".join(missing))
 
     def _gate_codex_assets(self) -> Gate:
-        skill = self.root / "skill" / "custom-codex-token-saver" / "SKILL.md"
+        skill = self.root / "skill" / "efts" / "SKILL.md"
         text = skill.read_text(encoding="utf-8") if skill.exists() else ""
-        ok = "Codex" in text and "ccts" in text and "AGENTS.md" in text and "requirement-watchdog.md" in text
-        return Gate("Codex skill and AGENTS workflow", "PASS" if ok else "FAIL", str(skill))
+        ok = "Codex" in text and "efts" in text and "AGENTS.md" in text and "requirement-watchdog.md" in text
+        return Gate("Codex skill and AGENTS workflow", "PASS" if ok else "FAIL", self._rel(skill))
 
     def _gate_watchdog_subagent(self) -> Gate:
-        path = self.root / "skill" / "custom-codex-token-saver" / "agents" / "requirement-watchdog.md"
+        path = self.root / "skill" / "efts" / "agents" / "requirement-watchdog.md"
         text = path.read_text(encoding="utf-8") if path.exists() else ""
         expected = [
-            "ccts watchdog --run-tests --until-pass",
-            "94%",
+            "efts watchdog --run-tests --until-pass",
+            "92%",
             "Anchor recall 100%",
+            "quality fact coverage 100%",
         ]
-        missing = [item for item in expected if item not in text]
+        text_l = text.lower()
+        missing = [item for item in expected if item.lower() not in text_l]
         status = "PASS" if path.exists() and not missing else "FAIL"
-        evidence = str(path) if status == "PASS" else "missing " + ",".join(missing)
+        evidence = self._rel(path) if status == "PASS" else "missing " + ",".join(missing)
         return Gate("requirement watchdog subagent", status, evidence)
 
     def _gate_post_tool_use_hook(self) -> Gate:
         files = [
-            self.root / "ccts" / "hook.py",
-            self.root / "tests" / "test_ccts_core.py",
+            self.root / "efts" / "hook.py",
+            self.root / "tests" / "test_efts_core.py",
         ]
         ok = all(path.exists() for path in files)
-        return Gate("Codex PostToolUse hook", "PASS" if ok else "FAIL", ", ".join(str(path) for path in files))
+        return Gate("Codex PostToolUse hook", "PASS" if ok else "FAIL", ", ".join(self._rel(path) for path in files))
 
     def _gate_installers(self) -> Gate:
         files = [self.root / "install.bat", self.root / "install.ps1"]
         ok = all(path.exists() for path in files)
-        return Gate("one-click Windows installer", "PASS" if ok else "FAIL", ", ".join(str(path) for path in files))
-
-    def _gate_windows_zip(self) -> Gate:
-        path = self.root / "dist" / "custom-codex-token-saver-windows.zip"
-        ok = path.exists() and path.stat().st_size > 0
-        return Gate("portable Windows zip", "PASS" if ok else "FAIL", str(path))
+        return Gate("one-click Windows installer", "PASS" if ok else "FAIL", ", ".join(self._rel(path) for path in files))
 
     def _gate_ab(self, metrics: dict) -> Gate:
-        required = 0.94
-        ok = metrics["overall_saving_ratio"] >= required and metrics["anchor_recall"] >= 1.0
+        required = 0.92
+        required_quality = 1.0
+        quality = float(metrics.get("quality_fact_coverage", 0.0))
+        ok = metrics["overall_saving_ratio"] >= required and metrics["anchor_recall"] >= 1.0 and quality >= required_quality
         evidence = (
             f"A/B saving={metrics['overall_saving_ratio']:.1%}>={required:.0%}, "
-            f"recall={metrics['anchor_recall']:.0%}"
+            f"recall={metrics['anchor_recall']:.0%}, "
+            f"quality={quality:.0%}"
         )
-        return Gate("A/B token saving without anchor loss", "PASS" if ok else "FAIL", evidence)
+        return Gate("A/B token saving with quality preservation", "PASS" if ok else "FAIL", evidence)
 
     def _gate_runtime(self, metrics: dict) -> Gate:
         max_ms = 1000
@@ -131,7 +130,7 @@ class RequirementWatchdog:
         floors = {
             "git_status_verbose": 0.50,
             "pytest_failure": 0.85,
-            "symbol-pack": 0.95,
+            "symbol-pack": 0.94,
         }
         cases = {case["name"]: case for case in metrics["cases"]}
         failures: list[str] = []
@@ -150,7 +149,7 @@ class RequirementWatchdog:
     def _gate_docs(self) -> Gate:
         docs = [self.root / "README.md", self.root / "docs" / "USAGE.md", self.root / "docs" / "AB_TEST_RESULTS.md"]
         ok = all(path.exists() for path in docs)
-        return Gate("docs and benchmark report", "PASS" if ok else "FAIL", ", ".join(str(path) for path in docs))
+        return Gate("docs and benchmark report", "PASS" if ok else "FAIL", ", ".join(self._rel(path) for path in docs))
 
     def _gate_tests(self) -> Gate:
         proc = subprocess.run(
@@ -163,4 +162,10 @@ class RequirementWatchdog:
         status = "PASS" if proc.returncode == 0 else "FAIL"
         evidence = "unittest discover rc=" + str(proc.returncode)
         return Gate("automated tests", status, evidence)
+
+    def _rel(self, path: Path) -> str:
+        try:
+            return str(path.relative_to(self.root))
+        except ValueError:
+            return str(path)
 

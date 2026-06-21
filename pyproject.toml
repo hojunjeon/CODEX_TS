@@ -1,13 +1,13 @@
-[project]
-name = "custom-codex-token-saver"
+﻿[project]
+name = "efts"
 version = "0.1.0"
-description = "CCTS: Codex-only token saver for Windows Codex Desktop and CLI"
+description = "EFTS: Codex-only token saver for Windows Codex Desktop and CLI"
 requires-python = ">=3.10"
 readme = "README.md"
 license = { text = "MIT" }
 
 [project.scripts]
-ccts = "ccts.__main__:main"
+efts = "efts.__main__:main"
 
 [tool.setuptools]
-packages = ["ccts"]
+packages = ["efts"]

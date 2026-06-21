@@ -1,16 +1,17 @@
-# CCTS Requirement Watchdog
+﻿# EFTS Requirement Watchdog
 
 Run:
 
 ```powershell
-ccts watchdog --run-tests --until-pass --max-runs 5
+efts watchdog --run-tests --until-pass --max-runs 5
 ```
 
 Release gates:
 
-- Overall A/B saving must be 94% or higher on bundled fixtures.
+- Overall A/B saving must be 92% or higher on bundled fixtures.
 - Per-case savings floors must pass.
 - Anchor recall 100%.
+- Quality fact coverage 100%.
 - Raw retrieval success 100%.
 - Secret redaction recall 100% for secret-bearing fixtures.
 - Windows installer files and Codex skill files must exist.

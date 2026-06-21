@@ -1,4 +1,4 @@
-# Sample App
+﻿# Sample App
 
 This fixture represents a documentation-heavy repository where Codex should not
 load every line before answering a targeted code question.

@@ -56,6 +56,7 @@ class ContextPacker:
             selected = [symbol for score, _coverage, symbol in scored if score > 0][:8]
         if not selected and symbols:
             selected = symbols[: min(5, len(symbols))]
+        selected = _expand_related_symbols(selected, symbols, terms)
 
         raw_refs: list[RawRef] = []
         captured_paths: set[Path] = set()
@@ -91,9 +92,14 @@ class ContextPacker:
 
     def _score_symbol(self, symbol: Symbol, query: str) -> int:
         terms = _terms(query)
-        haystack = " ".join([symbol.name.replace("_", " "), str(symbol.path), symbol.source]).lower()
-        score = sum(4 if term in symbol.name.lower().replace("_", " ") else 0 for term in terms)
-        score += sum(haystack.count(term) for term in terms)
+        name_haystack = symbol.name.lower().replace("_", " ")
+        haystack = " ".join([name_haystack, str(symbol.path), symbol.source]).lower().replace("_", " ")
+        score = 0
+        for term in terms:
+            if _term_hit(term, name_haystack):
+                score += 4
+            if _term_hit(term, haystack):
+                score += 1
         return score
 
 
@@ -112,8 +118,8 @@ def _compact_kind(kind: str) -> str:
 
 
 def _term_coverage(symbol: Symbol, terms: list[str]) -> int:
-    haystack = " ".join([symbol.name.replace("_", " "), str(symbol.path), symbol.source]).lower()
-    return sum(1 for term in terms if term in haystack)
+    haystack = " ".join([symbol.name.replace("_", " "), str(symbol.path), symbol.source]).lower().replace("_", " ")
+    return sum(1 for term in terms if _term_hit(term, haystack))
 
 
 def _anchor_recall(query: str, text: str) -> float:
@@ -121,13 +127,65 @@ def _anchor_recall(query: str, text: str) -> float:
     if not terms:
         return 1.0
     normalized = text.lower().replace("_", " ")
-    hits = sum(1 for term in terms if term in normalized)
+    hits = sum(1 for term in terms if _term_hit(term, normalized))
     return hits / len(terms)
+
+
+def _expand_related_symbols(selected: list[Symbol], symbols: list[Symbol], terms: list[str], limit: int = 10) -> list[Symbol]:
+    if not selected:
+        return selected
+    by_path: dict[Path, list[Symbol]] = {}
+    for symbol in symbols:
+        by_path.setdefault(symbol.path, []).append(symbol)
+
+    chosen: dict[tuple[Path, int, str], Symbol] = {}
+
+    def add(symbol: Symbol) -> None:
+        chosen[(symbol.path, symbol.start_line, symbol.name)] = symbol
+
+    min_related_coverage = max(1, min(2, len(terms))) if terms else 1
+    for symbol in selected:
+        add(symbol)
+        same_file = by_path.get(symbol.path, [])
+        try:
+            index = same_file.index(symbol)
+        except ValueError:
+            index = -1
+        if index > 0:
+            for candidate in reversed(same_file[:index]):
+                if candidate.kind == "class":
+                    add(candidate)
+                    break
+        for candidate in same_file:
+            if candidate == symbol:
+                continue
+            if _term_coverage(candidate, terms) >= min_related_coverage:
+                add(candidate)
+
+    return sorted(chosen.values(), key=lambda symbol: (str(symbol.path), symbol.start_line))[:limit]
+
+
+def _term_hit(term: str, haystack: str) -> bool:
+    if term in haystack:
+        return True
+    variants = {term}
+    if term.endswith("ed") and len(term) > 4:
+        variants.add(term[:-2])
+    if term.endswith("ing") and len(term) > 5:
+        variants.add(term[:-3])
+    if term.endswith("s") and len(term) > 4:
+        variants.add(term[:-1])
+    return any(len(variant) >= 3 and variant in haystack for variant in variants)
 
 
 def _symbol_excerpt(symbol: Symbol, query: str, max_lines: int = 8) -> str:
     lines = [line.rstrip() for line in symbol.source.splitlines() if line.strip()]
+    if symbol.kind == "class" and len(lines) == 1:
+        return ""
     evidence_lines = lines[1:] or lines
+    guard_summary = _compact_guard_raise(evidence_lines)
+    if guard_summary:
+        return f"  {guard_summary}"
     if len(evidence_lines) <= max_lines:
         return "\n".join(f"  {line}" for line in evidence_lines)
 
@@ -143,4 +201,19 @@ def _symbol_excerpt(symbol: Symbol, query: str, max_lines: int = 8) -> str:
     if not selected:
         selected.extend(evidence_lines[:max_lines])
     return "\n".join(f"  {line}" for line in selected[:max_lines])
+
+
+def _compact_guard_raise(lines: list[str]) -> str:
+    if len(lines) != 2:
+        return ""
+    first = lines[0].strip()
+    second = lines[1].strip()
+    if not first.startswith("if ") or not first.endswith(":") or not second.startswith("raise "):
+        return ""
+    condition = first.removeprefix("if ").removesuffix(":").strip()
+    raised = second.removeprefix("raise ").strip()
+    message = re.search(r"[\"'](.+?)[\"']", raised)
+    if message:
+        raised = message.group(1)
+    return f"{condition} => {raised}"
 

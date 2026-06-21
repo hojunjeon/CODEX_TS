@@ -75,7 +75,7 @@ def _preview_envelope(
     anchors = _extract_anchors(compact_text)
     retrieval_required = strategy in {"generic", "git-diff"} or saving_ratio < 0.5
     header = [
-        "_ccts_hook",
+        "_efts_hook",
         "schema_version: 1",
         f"mode: captured",
         f"capture_ref: ctx://capture/{capture_id}",
@@ -92,7 +92,7 @@ def _preview_envelope(
         "--- end_preview ---",
     ]
     if retrieval_required:
-        header.append(f"Use ccts get {capture_id} if exact omitted detail could affect the answer.")
+        header.append(f"Use efts get {capture_id} if exact omitted detail could affect the answer.")
     return "\n".join(header) + "\n"
 
 
@@ -114,17 +114,19 @@ def _redaction_count(text: str) -> int:
 def install_post_tool_use_hook(
     codex_home: Path | str,
     db_path: Path | str,
-    ccts_command: str | None = None,
+    efts_command: str | None = None,
 ) -> Path:
     codex_home = Path(codex_home)
     hooks_dir = codex_home / "hooks"
     hooks_dir.mkdir(parents=True, exist_ok=True)
-    shim = hooks_dir / "custom-codex-token-saver-post-tool-use.ps1"
+    shim = hooks_dir / "efts-post-tool-use.ps1"
     hooks_json = codex_home / "hooks.json"
     db_path = Path(db_path)
+    stamp = int(time.time())
 
-    command = ccts_command or f'"{sys.executable}" -m ccts'
+    command = efts_command or f'"{sys.executable}" -m efts'
     shim.write_text(_shim_script(command, db_path), encoding="utf-8")
+    _archive_legacy_hook_shims(codex_home, hooks_dir, stamp)
 
     data = _read_hooks_json(hooks_json)
     hooks = data.setdefault("hooks", {})
@@ -132,8 +134,9 @@ def install_post_tool_use_hook(
     existing = [
         entry
         for entry in existing
-        if "custom-codex-token-saver-post-tool-use.ps1" not in json.dumps(entry)
+        if "efts-post-tool-use.ps1" not in json.dumps(entry)
         and "codex-token-saver-post-tool-use.ps1" not in json.dumps(entry)
+        and "custom-codex-token-saver-post-tool-use.ps1" not in json.dumps(entry)
     ]
     hook_command = f'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "{shim}"'
     new_entry = {
@@ -142,20 +145,34 @@ def install_post_tool_use_hook(
                 "type": "command",
                 "command": hook_command,
                 "timeout": DEFAULT_HOOK_TIMEOUT_SECONDS,
-                "statusMessage": "CCTS compacting large Codex output",
+                "statusMessage": "EFTS compacting large Codex output",
             }
         ]
     }
     hooks["PostToolUse"] = [new_entry, *existing]
     trust_rows = _trust_post_tool_use_hooks(data, hooks_json)
 
-    stamp = int(time.time())
     if hooks_json.exists():
-        backup = hooks_json.with_name(hooks_json.name + f".bak-custom-codex-token-saver-{stamp}")
+        backup = hooks_json.with_name(hooks_json.name + f".bak-efts-{stamp}")
         backup.write_text(hooks_json.read_text(encoding="utf-8"), encoding="utf-8")
     hooks_json.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
     _write_config_trust_state(codex_home / "config.toml", trust_rows, stamp)
     return shim
+
+
+def _archive_legacy_hook_shims(codex_home: Path, hooks_dir: Path, stamp: int) -> None:
+    backup_dir = codex_home / "backups" / "efts-migration"
+    for name in ("codex-token-saver-post-tool-use.ps1", "custom-codex-token-saver-post-tool-use.ps1"):
+        legacy = hooks_dir / name
+        if not legacy.exists():
+            continue
+        backup_dir.mkdir(parents=True, exist_ok=True)
+        destination = backup_dir / f"{stamp}-{name}"
+        suffix = 1
+        while destination.exists():
+            destination = backup_dir / f"{stamp}-{suffix}-{name}"
+            suffix += 1
+        legacy.replace(destination)
 
 
 def _raw_response_text(value: object) -> str:
@@ -173,7 +190,7 @@ def _command_from_payload(payload: dict) -> str:
 
 def _is_capture_retrieval(command: str, payload: dict) -> bool:
     haystack = " ".join([command, json.dumps(payload.get("tool_input", ""), ensure_ascii=False)]).lower()
-    return "ctx://capture/" in haystack or " ccts get " in f" {haystack} " or "ccts get" in haystack
+    return "ctx://capture/" in haystack or " efts get " in f" {haystack} " or "efts get" in haystack
 
 
 def _redact_context(text: str) -> str:
@@ -210,7 +227,7 @@ def _trust_post_tool_use_hooks(data: dict, hooks_json: Path) -> list[dict[str, s
         for handler_index, hook in enumerate(entry.get("hooks", [])):
             if hook.get("type") != "command":
                 continue
-            if "custom-codex-token-saver-post-tool-use.ps1" not in str(hook.get("command", "")):
+            if not _is_managed_post_tool_use_command(str(hook.get("command", ""))):
                 continue
             identity = {
                 "event_name": "post_tool_use",
@@ -234,17 +251,22 @@ def _trust_post_tool_use_hooks(data: dict, hooks_json: Path) -> list[dict[str, s
     return rows
 
 
+def _is_managed_post_tool_use_command(command: str) -> bool:
+    return "efts-post-tool-use.ps1" in command or "omx-native-hook-windows-shim.ps1" in command
+
+
 def _write_config_trust_state(config_toml: Path, rows: list[dict[str, str]], stamp: int) -> None:
     if not rows:
         return
     config_toml.parent.mkdir(parents=True, exist_ok=True)
     if config_toml.exists():
-        backup = config_toml.with_name(config_toml.name + f".bak-custom-codex-token-saver-trust-{stamp}")
+        backup = config_toml.with_name(config_toml.name + f".bak-efts-trust-{stamp}")
         backup.write_text(config_toml.read_text(encoding="utf-8"), encoding="utf-8")
         text = config_toml.read_text(encoding="utf-8-sig")
     else:
         text = ""
 
+    text = _remove_post_tool_use_trust_sections(text)
     for row in rows:
         section = f'[hooks.state."{_toml_escape_key(row["key"])}"]'
         block = f'{section}\ntrusted_hash = "{row["trusted_hash"]}"'
@@ -258,11 +280,28 @@ def _write_config_trust_state(config_toml: Path, rows: list[dict[str, str]], sta
     config_toml.write_text(text, encoding="utf-8")
 
 
+def _remove_post_tool_use_trust_sections(text: str) -> str:
+    pattern = re.compile(
+        r"""
+        ^[ \t]*\[hooks\.state\.
+        (?:
+            '[^'\r\n]*:post_tool_use:\d+:\d+'
+            |
+            "(?:\\.|[^"\r\n])*:post_tool_use:\d+:\d+"
+        )
+        \][ \t]*\r?\n
+        [ \t]*trusted_hash[ \t]*=[ \t]*"[^"]*"[ \t]*(?:\r?\n)?
+        """,
+        re.MULTILINE | re.DOTALL | re.VERBOSE,
+    )
+    return pattern.sub("", text)
+
+
 def _toml_escape_key(value: str) -> str:
     return value.replace("\\", "\\\\").replace('"', '\\"')
 
 
-def _shim_script(ccts_command: str, db_path: Path) -> str:
+def _shim_script(efts_command: str, db_path: Path) -> str:
     quoted_db = str(db_path).replace("'", "''")
     return f"""$ErrorActionPreference = 'Stop'
 $stdinPayload = [Console]::In.ReadToEnd()
@@ -272,7 +311,7 @@ $startInfo.UseShellExecute = $false
 $startInfo.RedirectStandardInput = $true
 $startInfo.RedirectStandardOutput = $true
 $startInfo.RedirectStandardError = $true
-$startInfo.Arguments = '/c {ccts_command} hook post-tool-use --db "{quoted_db}"'
+$startInfo.Arguments = '/c {efts_command} hook post-tool-use --db "{quoted_db}"'
 $process = [System.Diagnostics.Process]::new()
 $process.StartInfo = $startInfo
 $null = $process.Start()

@@ -1,4 +1,4 @@
-============================= test session starts =============================
+﻿============================= test session starts =============================
 platform win32 -- Python 3.11.8, pytest-8.2.0
 rootdir: C:\work\sample
 collected 64 items

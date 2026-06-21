@@ -1,17 +1,19 @@
-# CCTS - Custom Codex Token Saver
+﻿# EFTS - Effective Token Saver
 
-CCTS is a Codex-only token saver for Windows Codex Desktop and Codex CLI.
+EFTS is a Codex-only token saver for Windows Codex Desktop and Codex CLI.
 
-It replaces the older `codex-token-saver`/`cts` workflow with a global `ccts` command, a Codex skill, and a trusted `PostToolUse` hook.
+It replaces the older `codex-token-saver`/`cts` workflow with a global `efts` command, a Codex skill, and a trusted `PostToolUse` hook.
 
 ## What It Does
 
 - Stores large raw tool outputs in SQLite.
 - Returns compact previews with `ctx://capture/<id>`, `sha256`, strategy, savings, and retrieval guidance.
-- Keeps exact raw output retrievable with `ccts get`.
+- Keeps exact raw output retrievable with `efts get`.
 - Uses deterministic compactors for pytest, git, search, listings, build/lint output, and generic logs.
-- Installs globally under `%USERPROFILE%\.codex` and `%LOCALAPPDATA%\CCTS`.
-- Replaces the old `cts.cmd` with a compatibility alias that calls `ccts`.
+- Preserves debugging facts such as failing tests, assertions, middleware/cache context, and related code symbols.
+- Measures `quality_fact_coverage` alongside token savings so quality regressions are visible.
+- Installs globally under `%USERPROFILE%\.codex` and `%LOCALAPPDATA%\EFTS`.
+- Removes the old CCTS command, skill, and hook from active Codex paths.
 
 ## Install On Windows
 
@@ -23,28 +25,34 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 
 The installer writes:
 
-- `%USERPROFILE%\.codex\bin\ccts.cmd`
-- `%USERPROFILE%\.codex\bin\cts.cmd` compatibility alias
-- `%USERPROFILE%\.codex\skills\custom-codex-token-saver`
-- `%USERPROFILE%\.codex\hooks.json` CCTS `PostToolUse` hook
-- `%LOCALAPPDATA%\CCTS`
+- `%USERPROFILE%\.codex\bin\efts.cmd`
+- `%USERPROFILE%\.codex\skills\efts`
+- `%USERPROFILE%\.codex\hooks.json` EFTS `PostToolUse` hook
+- `%LOCALAPPDATA%\EFTS`
 
 Restart Codex Desktop after installing so the skill and hook state reload.
 
 ## Commands
 
 ```powershell
-ccts pack --query "reject expired token" --root .
-python -m pytest -vv | ccts filter --capture --command "python -m pytest -vv"
-ccts search "expired token"
-ccts get 1 --preview
-ccts ab-test --fixtures benchmarks/fixtures --json docs/ab-test-results.json --markdown docs/AB_TEST_RESULTS.md
-ccts watchdog --run-tests
+efts pack --query "reject expired token" --root .
+python -m pytest -vv | efts filter --capture --command "python -m pytest -vv"
+efts search "expired token"
+efts get 1 --preview
+efts ab-test --fixtures benchmarks/fixtures --json docs/ab-test-results.json --markdown docs/AB_TEST_RESULTS.md
+efts watchdog --run-tests
 ```
+
+Current bundled gate:
+
+- Overall saving >= 92%
+- Anchor recall = 100%
+- Quality fact coverage = 100%
+- Per-case floors for git status, pytest, and symbol packs
 
 ## Design Boundary
 
-CCTS is intentionally Codex-first:
+EFTS is intentionally Codex-first:
 
 - Uses `AGENTS.md`, not `CLAUDE.md`.
 - Uses `~/.codex`, not `~/.claude`.
@@ -55,6 +63,6 @@ CCTS is intentionally Codex-first:
 
 ```powershell
 python -m unittest discover -s tests -v
-python -m ccts ab-test --fixtures benchmarks/fixtures
-python -m ccts watchdog --run-tests
+python -m efts ab-test --fixtures benchmarks/fixtures
+python -m efts watchdog --run-tests
 ```

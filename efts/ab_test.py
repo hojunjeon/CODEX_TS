@@ -26,6 +26,7 @@ def run_ab_test(fixtures_dir: Path | str) -> dict:
                 "optimized_tokens": compact.optimized_tokens,
                 "saving_ratio": round(compact.saving_ratio, 4),
                 "anchor_recall": _terminal_anchor_recall(raw, compact.text),
+                "quality_fact_coverage": _fact_coverage(raw, compact.text, _quality_facts_for_fixture(fixture.name)),
                 "strategy": compact.strategy,
             }
         )
@@ -34,6 +35,11 @@ def run_ab_test(fixtures_dir: Path | str) -> dict:
     if sample_repo.exists():
         store = ContextStore(fixtures / ".ab" / "ctx.sqlite")
         pack = ContextPacker(sample_repo, store).build_pack("reject expired token", token_budget=260)
+        baseline_text = "\n".join(
+            path.read_text(encoding="utf-8", errors="replace")
+            for path in sorted(sample_repo.rglob("*"))
+            if path.is_file()
+        )
         cases.append(
             {
                 "name": "symbol-pack",
@@ -42,6 +48,7 @@ def run_ab_test(fixtures_dir: Path | str) -> dict:
                 "optimized_tokens": pack.optimized_tokens,
                 "saving_ratio": round(pack.saving_ratio, 4),
                 "anchor_recall": pack.anchor_recall,
+                "quality_fact_coverage": _fact_coverage(baseline_text, pack.text, _symbol_pack_quality_facts()),
                 "strategy": "sqlite-symbol-pack",
             }
         )
@@ -50,12 +57,14 @@ def run_ab_test(fixtures_dir: Path | str) -> dict:
     optimized = sum(case["optimized_tokens"] for case in cases)
     saving = 0.0 if baseline == 0 else 1.0 - optimized / baseline
     recall = min((case["anchor_recall"] for case in cases), default=1.0)
+    quality = min((case["quality_fact_coverage"] for case in cases), default=1.0)
     elapsed_ms = (time.perf_counter() - started) * 1000
     return {
         "overall_baseline_tokens": baseline,
         "overall_optimized_tokens": optimized,
         "overall_saving_ratio": round(saving, 4),
         "anchor_recall": round(recall, 4),
+        "quality_fact_coverage": round(quality, 4),
         "elapsed_ms": round(elapsed_ms, 3),
         "cases": cases,
     }
@@ -68,17 +77,18 @@ def write_json(metrics: dict, path: Path | str) -> None:
 
 def write_markdown(metrics: dict, path: Path | str) -> None:
     rows = [
-        "| Case | Type | Baseline | Optimized | Saving | Recall |",
-        "|---|---:|---:|---:|---:|---:|",
+        "| Case | Type | Baseline | Optimized | Saving | Recall | Quality |",
+        "|---|---:|---:|---:|---:|---:|---:|",
     ]
     for case in metrics["cases"]:
         rows.append(
             f"| {case['name']} | {case['type']} | {case['baseline_tokens']} | "
-            f"{case['optimized_tokens']} | {case['saving_ratio']:.1%} | {case['anchor_recall']:.0%} |"
+            f"{case['optimized_tokens']} | {case['saving_ratio']:.1%} | {case['anchor_recall']:.0%} | "
+            f"{case['quality_fact_coverage']:.0%} |"
         )
     body = "\n".join(
         [
-            "# CCTS A/B Test Results",
+            "# EFTS A/B Test Results",
             "",
             "Baseline sends raw terminal/file context. Optimized sends compact facts plus SQLite `ctx://` references.",
             "",
@@ -86,6 +96,7 @@ def write_markdown(metrics: dict, path: Path | str) -> None:
             f"- Overall optimized tokens: {metrics['overall_optimized_tokens']}",
             f"- Overall saving: {metrics['overall_saving_ratio']:.1%}",
             f"- Anchor recall: {metrics['anchor_recall']:.0%}",
+            f"- Quality fact coverage: {metrics['quality_fact_coverage']:.0%}",
             f"- Runtime: {metrics['elapsed_ms']} ms",
             "",
             *rows,
@@ -132,6 +143,52 @@ def _terminal_anchor_recall(raw: str, compact: str) -> float:
         if anchor.lower() in compact_l or (alternate is not None and _alternate_anchor_hit(alternate, compact)):
             hits += 1
     return hits / len(anchors)
+
+
+def _quality_facts_for_fixture(name: str) -> list[tuple[str, list[str]]]:
+    lower = name.lower()
+    if "pytest" in lower:
+        return [
+            ("failing test name", ["test_rejects_expired_token"]),
+            ("failure location", ["tests/test_auth.py:42"]),
+            ("actual/expected status", ["assert 200 == 401"]),
+            ("cache state", ["cache hit false"]),
+            ("auth middleware", ["middleware stack auth", "auth ->"]),
+            ("csrf middleware", ["middleware stack csrf", "-> csrf"]),
+            ("handler reached", ["middleware stack handler", "-> handler"]),
+        ]
+    if "git_status" in lower or "status" in lower:
+        return [
+            ("branch", ["feature/codex-token-saver"]),
+            ("ahead count", ["ahead+2", "ahead of"]),
+            ("modified compactor", ["codex_token_saver/compactor.py"]),
+            ("modified README", ["README.md"]),
+            ("modified usage doc", ["docs/USAGE.md"]),
+            ("untracked test", ["tests/test_compactor.py"]),
+            ("untracked skill", ["skill/codex-token-saver/SKILL.md"]),
+        ]
+    return []
+
+
+def _symbol_pack_quality_facts() -> list[tuple[str, list[str]]]:
+    return [
+        ("verifier class", ["TokenVerifier"]),
+        ("token acceptance method", ["accepts"]),
+        ("token expiration predicate", ["expires_at > now"]),
+        ("target assertion helper", ["reject_expired_token"]),
+    ]
+
+
+def _fact_coverage(raw: str, compact: str, facts: list[tuple[str, list[str]]]) -> float:
+    if not facts:
+        return 1.0
+    raw_l = raw.lower()
+    compact_l = compact.lower()
+    relevant = [needles for _label, needles in facts if any(needle.lower() in raw_l for needle in needles)]
+    if not relevant:
+        return 1.0
+    hits = sum(1 for needles in relevant if any(needle.lower() in compact_l for needle in needles))
+    return hits / len(relevant)
 
 
 def _compact_summary_anchor(line: str) -> str | None:

@@ -88,7 +88,7 @@ class ContextStore:
         if len(all_lines) <= lines:
             return record.text
         head = "\n".join(all_lines[:lines])
-        return f"{head}\n[ccts] preview only. Use ctx://capture/{capture_id} to retrieve full text."
+        return f"{head}\n[efts] preview only. Use ctx://capture/{capture_id} to retrieve full text."
 
     def search(self, query: str, limit: int = 10) -> list[CaptureRecord]:
         terms = [term.lower() for term in query.split() if len(term) > 1]

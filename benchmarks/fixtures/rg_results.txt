@@ -1,4 +1,4 @@
-src/auth.py:12:def reject_expired_token(token):
+﻿src/auth.py:12:def reject_expired_token(token):
 src/auth.py:27:    raise ValueError("expired token")
 src/api.py:88:        reject_expired_token(request.token)
 tests/test_auth.py:14:def test_reject_expired_token():

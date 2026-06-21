@@ -16,34 +16,34 @@ from .watchdog import RequirementWatchdog
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="ccts", description="CCTS")
+    parser = argparse.ArgumentParser(prog="efts", description="EFTS")
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     p_filter = sub.add_parser("filter", help="compact stdin terminal output")
     p_filter.add_argument("--command", default="")
-    p_filter.add_argument("--db", default=".custom-codex-token-saver/context.sqlite")
+    p_filter.add_argument("--db", default=".efts/context.sqlite")
     p_filter.add_argument("--capture", action="store_true")
 
     p_capture = sub.add_parser("capture", help="store raw stdin/file in SQLite")
-    p_capture.add_argument("--db", default=".custom-codex-token-saver/context.sqlite")
+    p_capture.add_argument("--db", default=".efts/context.sqlite")
     p_capture.add_argument("--tool", default="Bash")
     p_capture.add_argument("--command", default="")
     p_capture.add_argument("file", nargs="?")
 
     p_get = sub.add_parser("get", help="retrieve ctx capture")
     p_get.add_argument("id", type=int)
-    p_get.add_argument("--db", default=".custom-codex-token-saver/context.sqlite")
+    p_get.add_argument("--db", default=".efts/context.sqlite")
     p_get.add_argument("--preview", action="store_true")
 
     p_search = sub.add_parser("search", help="search captured raw evidence")
     p_search.add_argument("query")
-    p_search.add_argument("--db", default=".custom-codex-token-saver/context.sqlite")
+    p_search.add_argument("--db", default=".efts/context.sqlite")
 
     p_pack = sub.add_parser("pack", help="build a query-focused Codex context pack")
     p_pack.add_argument("--root", default=".")
     p_pack.add_argument("--query", required=True)
     p_pack.add_argument("--budget", type=int, default=1200)
-    p_pack.add_argument("--db", default=".custom-codex-token-saver/context.sqlite")
+    p_pack.add_argument("--db", default=".efts/context.sqlite")
 
     p_scan = sub.add_parser("scan", help="find ghost-token risks")
     p_scan.add_argument("--root", default=".")
@@ -62,17 +62,17 @@ def main(argv: list[str] | None = None) -> int:
     p_hook = sub.add_parser("hook", help="Codex hook helpers")
     hook_sub = p_hook.add_subparsers(dest="hook_cmd", required=True)
     p_post = hook_sub.add_parser("post-tool-use", help="compact Codex PostToolUse JSON from stdin")
-    p_post.add_argument("--db", default=os.environ.get("CCTS_DB", ".custom-codex-token-saver/context.sqlite"))
+    p_post.add_argument("--db", default=os.environ.get("EFTS_DB", ".efts/context.sqlite"))
     p_post.add_argument(
         "--threshold-bytes",
         type=int,
-        default=int(os.environ.get("CCTS_HOOK_THRESHOLD", str(DEFAULT_THRESHOLD_BYTES))),
+        default=int(os.environ.get("EFTS_HOOK_THRESHOLD", str(DEFAULT_THRESHOLD_BYTES))),
     )
 
     p_install_hook = sub.add_parser("install-hook", help="install Codex PostToolUse hook shim")
     p_install_hook.add_argument("--codex-home", default=os.environ.get("CODEX_HOME", str(Path.home() / ".codex")))
-    p_install_hook.add_argument("--db", default=os.environ.get("CCTS_DB", ".custom-codex-token-saver/context.sqlite"))
-    p_install_hook.add_argument("--ccts-command")
+    p_install_hook.add_argument("--db", default=os.environ.get("EFTS_DB", ".efts/context.sqlite"))
+    p_install_hook.add_argument("--efts-command")
 
     p_init = sub.add_parser("init", help="write Codex AGENTS.md instructions for this repo")
     p_init.add_argument("--root", default=".")
@@ -111,7 +111,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "pack":
         pack = ContextPacker(Path(args.root), ContextStore(Path(args.db))).build_pack(args.query, args.budget)
         print(pack.text, end="")
-        print(f"\n[ccts] baseline={pack.baseline_tokens} optimized={pack.optimized_tokens} saving={pack.saving_ratio:.1%} recall={pack.anchor_recall:.0%}")
+        print(f"\n[efts] baseline={pack.baseline_tokens} optimized={pack.optimized_tokens} saving={pack.saving_ratio:.1%} recall={pack.anchor_recall:.0%}")
         return 0
 
     if args.cmd == "scan":
@@ -126,7 +126,12 @@ def main(argv: list[str] | None = None) -> int:
             write_json(metrics, Path(args.json))
         if args.markdown:
             write_markdown(metrics, Path(args.markdown))
-        print(f"PASS A/B saving={metrics['overall_saving_ratio']:.1%} recall={metrics['anchor_recall']:.0%} elapsed={metrics['elapsed_ms']}ms")
+        print(
+            f"PASS A/B saving={metrics['overall_saving_ratio']:.1%} "
+            f"recall={metrics['anchor_recall']:.0%} "
+            f"quality={metrics['quality_fact_coverage']:.0%} "
+            f"elapsed={metrics['elapsed_ms']}ms"
+        )
         return 0
 
     if args.cmd == "watchdog":
@@ -166,8 +171,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.cmd == "install-hook":
-        shim = install_post_tool_use_hook(Path(args.codex_home), Path(args.db), ccts_command=args.ccts_command)
-        print("Installed CCTS PostToolUse hook:")
+        shim = install_post_tool_use_hook(Path(args.codex_home), Path(args.db), efts_command=args.efts_command)
+        print("Installed EFTS PostToolUse hook:")
         print(f"  shim: {shim}")
         print(f"  db: {Path(args.db)}")
         print("Restart Codex Desktop sessions to guarantee hook reload.")
@@ -186,9 +191,9 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _agents_template() -> str:
-    return """# CCTS
+    return """# EFTS
 
-Use `ccts pack --query "<task>"` before broad file reads. Use `ccts filter --capture --command "<cmd>"` for noisy terminal output. Keep final replies concise, but preserve exact file paths, errors, commands, and decisions. If compacted context is insufficient, retrieve exact raw evidence with `ccts get <id>` from the shown `ctx://capture/<id>` reference.
+Use `efts pack --query "<task>"` before broad file reads. Use `efts filter --capture --command "<cmd>"` for noisy terminal output. Keep final replies concise, but preserve exact file paths, errors, commands, and decisions. If compacted context is insufficient, retrieve exact raw evidence with `efts get <id>` from the shown `ctx://capture/<id>` reference.
 """
 
 

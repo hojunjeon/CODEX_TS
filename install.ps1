@@ -1,12 +1,14 @@
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 
 $RepoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $CodexHome = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $env:USERPROFILE '.codex' }
-$CctsHome = Join-Path $env:LOCALAPPDATA 'CCTS'
+$EftsHome = Join-Path $env:LOCALAPPDATA 'EFTS'
 $CodexBin = Join-Path $CodexHome 'bin'
 $SkillRoot = Join-Path $CodexHome 'skills'
-$CctsSkill = Join-Path $SkillRoot 'custom-codex-token-saver'
-$CompatSkill = Join-Path $SkillRoot 'codex-token-saver'
+$EftsSkill = Join-Path $SkillRoot 'efts'
+$LegacySkill = Join-Path $SkillRoot 'codex-token-saver'
+$LegacyHome = Join-Path $env:LOCALAPPDATA 'CodexTokenSaver'
+$BackupRoot = Join-Path $CodexHome 'backups\efts-migration'
 $Stamp = Get-Date -Format 'yyyyMMddHHmmss'
 
 function Resolve-Python3 {
@@ -44,76 +46,64 @@ function Copy-DirectoryClean {
     Copy-Item -LiteralPath $Source -Destination $Destination -Recurse -Force
 }
 
-New-Item -ItemType Directory -Force -Path $CctsHome, $CodexHome, $CodexBin, $SkillRoot | Out-Null
+function Move-LegacyPath {
+    param(
+        [Parameter(Mandatory=$true)][string]$Path,
+        [Parameter(Mandatory=$true)][string]$Label
+    )
+    if (-not (Test-Path $Path)) {
+        return
+    }
+    New-Item -ItemType Directory -Force -Path $BackupRoot | Out-Null
+    $Name = Split-Path -Leaf $Path
+    $Destination = Join-Path $BackupRoot ($Stamp + '-' + $Label + '-' + $Name)
+    Move-Item -LiteralPath $Path -Destination $Destination -Force
+    Write-Host "Removed legacy ${Label}: $Destination"
+}
+
+New-Item -ItemType Directory -Force -Path $EftsHome, $CodexHome, $CodexBin, $SkillRoot | Out-Null
 $PythonSpec = Resolve-Python3
 
-Copy-DirectoryClean -Source (Join-Path $RepoRoot 'ccts') -Destination (Join-Path $CctsHome 'ccts')
-Copy-DirectoryClean -Source (Join-Path $RepoRoot 'benchmarks') -Destination (Join-Path $CctsHome 'benchmarks')
+Copy-DirectoryClean -Source (Join-Path $RepoRoot 'efts') -Destination (Join-Path $EftsHome 'efts')
+Copy-DirectoryClean -Source (Join-Path $RepoRoot 'benchmarks') -Destination (Join-Path $EftsHome 'benchmarks')
 if (Test-Path (Join-Path $RepoRoot 'docs')) {
-    Copy-DirectoryClean -Source (Join-Path $RepoRoot 'docs') -Destination (Join-Path $CctsHome 'docs')
+    Copy-DirectoryClean -Source (Join-Path $RepoRoot 'docs') -Destination (Join-Path $EftsHome 'docs')
 }
-Copy-DirectoryClean -Source (Join-Path $RepoRoot 'skill\custom-codex-token-saver') -Destination $CctsSkill
+Copy-DirectoryClean -Source (Join-Path $RepoRoot 'skill\efts') -Destination $EftsSkill
 
-if (Test-Path $CompatSkill) {
-    $Backup = Join-Path $SkillRoot ("codex-token-saver.bak-ccts-" + $Stamp)
-    Move-Item -LiteralPath $CompatSkill -Destination $Backup -Force
-    Write-Host "Backed up legacy skill: $Backup"
-}
-New-Item -ItemType Directory -Force -Path $CompatSkill | Out-Null
-@'
----
-name: codex-token-saver
-description: Compatibility alias. Use CCTS (custom codex token saver) for all Codex token-saving workflows.
----
+Move-LegacyPath -Path $LegacySkill -Label 'skill'
 
-# CCTS Compatibility Alias
-
-The previous Codex Token Saver has been replaced by CCTS.
-
-Use `ccts pack`, `ccts filter --capture`, `ccts get`, `ccts search`, `ccts ab-test`, and `ccts watchdog`.
-'@ | Set-Content -Encoding UTF8 -Path (Join-Path $CompatSkill 'SKILL.md')
-
-$CctsCmd = Join-Path $CodexBin 'ccts.cmd'
+$EftsCmd = Join-Path $CodexBin 'efts.cmd'
 $PythonCommand = $PythonSpec.Command
 $PythonPrefix = ''
 if ($PythonSpec.Args.Count -gt 0) {
     $PythonPrefix = ($PythonSpec.Args -join ' ') + ' '
 }
-if (Test-Path $CctsCmd) {
-    $Backup = $CctsCmd + ".bak-ccts-" + $Stamp
-    Copy-Item -LiteralPath $CctsCmd -Destination $Backup -Force
-    Write-Host "Backed up previous ccts shim: $Backup"
+if (Test-Path $EftsCmd) {
+    $Backup = $EftsCmd + ".bak-efts-" + $Stamp
+    Copy-Item -LiteralPath $EftsCmd -Destination $Backup -Force
+    Write-Host "Backed up previous efts shim: $Backup"
 }
 @"
 @echo off
-set "PYTHONPATH=%LOCALAPPDATA%\CCTS;%PYTHONPATH%"
-"$PythonCommand" $PythonPrefix-m ccts %*
+set "PYTHONPATH=%LOCALAPPDATA%\EFTS;%PYTHONPATH%"
+"$PythonCommand" $PythonPrefix-m efts %*
 exit /b %ERRORLEVEL%
-"@ | Set-Content -Encoding ASCII -Path $CctsCmd
+"@ | Set-Content -Encoding ASCII -Path $EftsCmd
 
 $CtsCmd = Join-Path $CodexBin 'cts.cmd'
-if (Test-Path $CtsCmd) {
-    $Backup = $CtsCmd + ".bak-ccts-" + $Stamp
-    Copy-Item -LiteralPath $CtsCmd -Destination $Backup -Force
-    Write-Host "Backed up legacy cts shim: $Backup"
-}
-@"
-@echo off
-rem CCTS replaces the old cts command.
-call "%USERPROFILE%\.codex\bin\ccts.cmd" %*
-exit /b %ERRORLEVEL%
-"@ | Set-Content -Encoding ASCII -Path $CtsCmd
+Move-LegacyPath -Path $CtsCmd -Label 'command'
+Move-LegacyPath -Path $LegacyHome -Label 'home'
 
-$env:PYTHONPATH = "$CctsHome;$env:PYTHONPATH"
-$DbPath = Join-Path $CctsHome 'context.sqlite'
-& $CctsCmd install-hook --codex-home $CodexHome --db $DbPath --ccts-command "`"$CctsCmd`""
+$env:PYTHONPATH = "$EftsHome;$env:PYTHONPATH"
+$DbPath = Join-Path $EftsHome 'context.sqlite'
+& $EftsCmd install-hook --codex-home $CodexHome --db $DbPath --efts-command "`"$EftsCmd`""
 if ($LASTEXITCODE -ne 0) {
-    throw "ccts install-hook failed with exit code $LASTEXITCODE"
+    throw "efts install-hook failed with exit code $LASTEXITCODE"
 }
 
-Write-Host "CCTS installed globally."
-Write-Host "  command: $CctsCmd"
-Write-Host "  old cts alias: $CtsCmd"
-Write-Host "  home: $CctsHome"
-Write-Host "  skill: $CctsSkill"
+Write-Host "EFTS installed globally."
+Write-Host "  command: $EftsCmd"
+Write-Host "  home: $EftsHome"
+Write-Host "  skill: $EftsSkill"
 Write-Host "Restart Codex Desktop to reload skills and hooks."

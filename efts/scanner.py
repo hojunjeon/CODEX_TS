@@ -34,7 +34,7 @@ def scan_waste(root: Path | str, limit: int = 20) -> list[WasteFinding]:
         name = path.name.lower()
         if tokens > 4000:
             reason = "large context file"
-            recommendation = "sandbox with `ccts capture` and reference by ctx:// id"
+            recommendation = "sandbox with `efts capture` and reference by ctx:// id"
         elif name in {"claude.md", "agents.md"} and tokens > 800:
             reason = "startup instruction overhead"
             recommendation = "move details to docs and keep AGENTS.md as a routing index"

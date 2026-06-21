@@ -1,8 +1,8 @@
-# CCTS Repository Analysis
+﻿# EFTS Repository Analysis
 
-CCTS is Codex-only. It borrows only the pieces that fit Codex Desktop/CLI on Windows.
+EFTS is Codex-only. It borrows only the pieces that fit Codex Desktop/CLI on Windows.
 
-| Repo | CCTS decision | Feature used |
+| Repo | EFTS decision | Feature used |
 |---|---|---|
 | hojunjeon/Agents-Token-Saver | Core | Codex `PostToolUse` hook, SQLite raw vault, `ctx://capture` retrieval |
 | chopratejas/headroom | Concept only | Reversible retrieval contract, not proxy/wrap MVP |

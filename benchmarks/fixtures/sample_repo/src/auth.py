@@ -1,4 +1,4 @@
-class TokenVerifier:
+﻿class TokenVerifier:
     def accepts(self, token):
         return token.expires_at > now()
 

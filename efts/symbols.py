@@ -24,7 +24,7 @@ SKIP_DIRS = {
     ".git",
     ".hg",
     ".svn",
-    ".custom-codex-token-saver",
+    ".efts",
     "__pycache__",
     "node_modules",
     "dist",
@@ -60,7 +60,7 @@ def iter_source_files(root: Path) -> list[Path]:
 
 def extract_symbols(path: Path, root: Path | None = None) -> list[Symbol]:
     try:
-        text = path.read_text(encoding="utf-8")
+        text = path.read_text(encoding="utf-8-sig")
     except UnicodeDecodeError:
         text = path.read_text(encoding="utf-8", errors="replace")
     lines = text.splitlines()
